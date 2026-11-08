@@ -1,14 +1,6 @@
 # The Glass Box and the Gravity Well
 
-> **Elevator pitch:** you spent years carving a world out of raw logic, local
-> files, and bare metal — then you shipped it, and within forty-eight hours the
-> illusion of ownership evaporated. `yatare` is a stubborn, local-first
-> experiment in refusing the trade: not cloud locks, not DRM bloat, but making
-> the *inside* of your code structurally uninhabitable — short, fully-live,
-> alien bytecode that no dead-code pass can vaporize and no analyst can read.
-> It will probably fail. The point is proving another path exists.
-
-## The pull
+# The pull
 
 If you are a tech-minded individual drawn into the orbit of indie game
 development, you already know the pull. It's an intoxicating friction: the
@@ -19,7 +11,9 @@ silicon.
 
 Then you ship it.
 
-And within forty-eight hours, the illusion of ownership evaporates.
+And within forty-eight hours, the illusion of authorship evaporates, taking your 
+sense of accomplishment down with it in a 48-hour flood of automated grey goo of 
+sloppy clones.
 
 ## The reality of modern reverse engineering
 
@@ -47,10 +41,15 @@ from byte one.
 
 ## A stubborn, low-level try
 
+> "When you have eliminated the probable, predictable pathways of clean-room 
+> development, whatever alien stack-juggling remains—however improbable—must 
+> be the only valid solution."
+- Sherlock Holmes, probably
+
 What if we stopped trying to lock the doors from the outside and instead made
 the inside structurally uninhabitable for a parasite?
 
-That is the quiet, stubborn thesis behind tools like `yatare`. It isn't a
+That is the quiet, stubborn thesis behind `yatare`. It isn't a
 silver bullet. It's not a commercial product with a venture-backed roadmap or
 a glossy marketing deck. It is an honest, localized experiment: can we use
 stochastic superoptimization and dense algebraic folding to turn human-written
@@ -220,7 +219,19 @@ climbing.
 
 ---
 
-> For an optimizer, that opposition is our inner loop: the mutator screaming
-> for radical structural variance, and the fitness oracle acting as the
-> guillotine of semantic correctness. Only the code that survives both gets to
-> live.
+## Elevator pitch and prose
+
+**Elevator pitch:** you spent years carving a world out of raw logic, local
+files, and bare metal — then you shipped it, and within forty-eight hours the
+illusion of ownership evaporated. `yatare` is a stubborn, local-first
+experiment in refusing the trade: not cloud locks, not DRM bloat, but making
+the *inside* of your code structurally uninhabitable — short, fully-live,
+alien bytecode that no dead-code pass can vaporize and no analyst can read.
+It will probably fail. The point is proving another path exists.
+
+### Prose
+
+For an optimizer, that opposition is our inner loop: the mutator screaming
+for radical structural variance, and the fitness oracle acting as the
+guillotine of semantic correctness. Only the code that survives both gets to
+live.
