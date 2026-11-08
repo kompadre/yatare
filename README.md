@@ -30,11 +30,13 @@ drawbridge for each.
 5. **Forensic Watermarking (`src/watermark.rs`):** *Planned* — biased cost functions and algebraic constants to bind ownership profiles into the binary layout.
 
 The pipeline is shaped for more floors: **stage 2 is WebAssembly**, and the
-natural targets after that are **JVM class files** and **.NET/CIL** — both are
-stack machines with local-variable tables (this VM's home turf), and both
-ecosystems treat one-click decompilation (JADX, ILSpy, dnSpy) as a fact of
-life. Retargeting means new instruction tables and emitters; the search
-machinery keeps its shape.
+natural targets after that are **JVM class files**, **.NET/CIL**, and
+**Python `.pyc`** — all stack machines with local-variable tables (this VM's
+home turf; Python's catch is its object model, not its stack) — plus **Luau**
+(Roblox), whose register-based VM wants a register↔stack adapter instead of a
+dialect table. All of these ecosystems treat one-click decompilation (JADX,
+ILSpy, dnSpy, uncompyle6) as a fact of life. Retargeting means new
+instruction tables and emitters; the search machinery keeps its shape.
 
 ## Installation & Usage
 

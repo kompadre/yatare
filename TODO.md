@@ -39,9 +39,12 @@ Speculative defenses — the "drawbridge" counter-measures from
 - `watermark.rs` forensic watermarking (README lists it as planned)
 - Terminator/branch mutators (cross-block folding) + dataflow-aware entropy
   scoring for dead-read detection
-- Future emitter targets beyond WASM: **JVM class files** and **.NET/CIL** —
-  same shape as this VM (operand/evaluation stack + local table), highest
-  victim value (JADX / ILSpy / dnSpy culture); costs new instruction tables +
-  emitters, search machinery unchanged
+- Future emitter targets beyond WASM: **JVM class files**, **.NET/CIL**,
+  **Python `.pyc`** — same shape as this VM (stack + local table; `.pyc` adds
+  a version-locked file format per CPython release, and covers only the
+  i32-kernel subset until an object model exists), and **Luau** (Roblox) —
+  register-based VM, so it needs a register↔stack adapter, not just tables.
+  Victim value high everywhere (JADX / ILSpy / dnSpy / uncompyle6 culture);
+  search machinery unchanged
 
 

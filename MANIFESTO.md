@@ -203,10 +203,20 @@ and the CIL evaluation stack + locals map onto this VM's shape almost
 one-to-one (the stack-typing verifier was already modeled on the JVM's own
 verifier), so retargeting means new instruction tables and an emitter — not a
 new search engine. And those are precisely the ecosystems where one-click
-decompilation is the assumed default: Minecraft-mod and Unity-Mono builds
-dissolving under JADX, ILSpy, or dnSpy before the coffee is cold. The
-machinery that refuses to be read here is the same machinery that would refuse
-to be read there.
+decompilation is the assumed default: Minecraft-mod builds under JADX,
+Unity-Mono under ILSpy or dnSpy, Python `.pyc` under uncompyle6 — stripped
+before the coffee is cold. The machinery that refuses to be read here is the
+same machinery that would refuse to be read there.
+
+The gamedev scripting favorites climb the ladder too. **CPython's `.pyc`**
+deserves its own note: evaluation stack plus locals array means home turf
+again — the catch there isn't the stack, it's the object model (i32 kernels
+first, full dynamic types later). And **Luau** is the loudest case of all: the
+Roblox dialect under an entire exploit economy built on reading your bytecode,
+game logic scraped and re-uploaded as daily routine — though its VM is
+register-based, so it asks for a register↔stack adapter instead of a dialect
+table. The one floor that needs a staircase, and possibly the one most worth
+climbing.
 
 ---
 

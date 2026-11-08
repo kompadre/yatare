@@ -47,9 +47,9 @@ The project has not had a release yet; everything lives under `[Unreleased]`.
   project's stance (local-first code self-defense, dense algebraic folding vs
   cloud locks/DRM), the opposition's dilemma and escalation vectors (SMT,
   behavioral cloning, boundary hooking, the LLM ratchet), Phase 2
-  counter-moves, and future emitter targets (WASM → JVM/.NET) — linked from
-  README's "Why", with counter-measures and targets queued in the TODO
-  backlog.
+  counter-moves, and future emitter targets (WASM → JVM/.NET/Python
+  `.pyc`/Luau) — linked from README's "Why", with counter-measures and
+  targets queued in the TODO backlog.
 - **Tests**: 69 green (VM semantics, parser round-trips, typing rejections,
   optimizer determinism/search outcomes, JS front-end behavior and error
   classes, CLI end-to-end, full demo) — `cargo test`, plus
