@@ -49,12 +49,12 @@ class-mask logic must be XOR + JLT/JEQ patterns.
 
 ### Implementation breakdown (phases)
 
-- [ ] P0 bootstrap: git, cargo scaffold, LICENSE, .gitignore, doc evictions (this entry)
-- [ ] P1 `src/vm.rs`: `Instr`, `Vm`, interpreter loop, traps, step budget
-- [ ] P2 `src/parser.rs`: asm text ↔ program, labels, round-trip tests
-- [ ] P3 oracle (in `src/optimizer.rs`): seeded vectors, cache original runs
-- [ ] P4 mutators (insert/delete/transpose + identity pairs), stack-typing validity, fitness (`--mode size|obfuscate`)
-- [ ] P5 CLI (`run`, `optimize`), sample programs
+- [x] P0 bootstrap: git, cargo scaffold, LICENSE, .gitignore, doc evictions (this entry)
+- [x] P1 `src/vm.rs`: `Instr`, `Vm`, interpreter loop, traps, step budget
+- [x] P2 `src/parser.rs`: asm text ↔ program, labels, round-trip tests
+- [x] P3 oracle (in `src/optimizer.rs`): seeded vectors, cache original runs
+- [x] P4 mutators (insert/delete/transpose + identity pairs), stack-typing validity, fitness (`--mode size|obfuscate`)
+- [x] P5 CLI (`run`, `disasm`, `optimize`), sample programs + `tests/cli.rs`
 - [ ] P6 JS subset compiler (`src/js/`): lexer, Pratt parser, resolver (≤16 locals), codegen with inlining + interning
 - [ ] P7 naive-jQuery/VDOM layout-offset demo + harness
 - [ ] P8 gates green; doc flow: detail → CHANGELOG `[Unreleased]`, tick TODO sub-items, README usage/architecture update
@@ -72,3 +72,28 @@ class-mask logic must be XOR + JLT/JEQ patterns.
   compared to the cache (search throughput).
 - Adding `src/js/` extends the README architecture list (README is agent-editable
   when architecture changes); AGENTS.md stays untouched per Instruction 0.
+
+### Gotchas learned in P0–P5 (2026-11-08)
+
+- **All 16 locals are observable ⇒ no such thing as a dead write.** A
+  `push k / store <never-loaded slot>` unit always diverges (locals differ);
+  it was removed from the insert payload. Relaxing to a live-out set is a
+  future optimizer upgrade.
+- **Fixture rule: never `store` into the input slot.** The first obfuscate
+  fixture did `push 0; store 0`, overwriting its own input → every vector
+  livelocked → `NoValidVectors`. The oracle caught it; the fixture was rebuilt.
+- **Mutator range guards:** `delete_range_max` must be `None` when the cap is
+  0 (terminator-only blocks) or `rng.below(0)` panics. All three mutators
+  validate position ranges up front.
+- **Identity units are depth-sensitive** (`[swap,swap]` needs depth ≥ 2): the
+  typecheck — not the unit table — decides feasibility; tests must insert at a
+  feasible depth.
+- **Verification vector counts can be < requested:** vectors where the
+  *original* exceeds the step budget (huge random loop bounds) are excluded by
+  design (e.g. 410/512 on `sum_loop`).
+- **Fitness quirk noted for later:** adjacent `swap; swap` is never penalized
+  (+14 score) so it's accepted as trivial noise; consider scoring it as an
+  idiom pair.
+- Measured P4 behavior (seed 7, size mode on `dead_code.asm`): 14 → 6
+  instructions, 6000 iterations = 1491 untypable + 2972 divergent + 110
+  accepted, PASS on 512 fresh vectors. Determinism test locks same-seed output.

@@ -29,6 +29,16 @@ pub enum Instr {
     Ret,
 }
 
+impl Instr {
+    /// Terminators end a straight-line block; the optimizer pins them.
+    pub fn is_terminator(&self) -> bool {
+        matches!(
+            self,
+            Instr::Jeq(..) | Instr::Jlt(..) | Instr::Jmp(..) | Instr::Ret
+        )
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Trap {
     StackOverflow,
