@@ -9,6 +9,18 @@ charged per instruction and rewarded for productive stack juggling, so the
 result stays short and fast while every instruction remains mathematically
 live — dead-code elimination finds nothing to remove.
 
+## Why
+
+Indie logic shouldn't ship as a naked glass box, and the traditional answers —
+always-online telemetry, heavyweight DRM — betray the ethos in the opposite
+direction. `yatare` is the stubborn, local-first third option: honest about
+its odds, ruthless about semantics, local by design.
+
+Read **[The Glass Box and the Gravity Well](MANIFESTO.md)** — the manifesto:
+what shipped code deserves, what opposition actually throws at it (SMT solvers,
+behavioral cloning, boundary hooking, the LLM ratchet), and the Phase 2
+drawbridge for each.
+
 ## Architecture
 
 1. **Stack-Based VM (`src/vm.rs`):** A lightweight, 14-instruction stack machine featuring fixed local storage, zero hardware registers, and explicit control-flow primitives. Wrapping i32 semantics, `[i32; 16]` locals, zero allocation in the step loop.

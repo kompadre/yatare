@@ -23,4 +23,21 @@ into `CHANGELOG.md` and the stage row below gets ticked.
 
 ## Backlog (nice to have)
 
+Speculative defenses — the "drawbridge" counter-measures from
+[`MANIFESTO.md`](MANIFESTO.md) (stage 2+; none started, none validated):
+
+- Dynamic control-flow flattening + runtime-seeded opaque predicates
+  (vs SMT/Z3 symbolic execution)
+- Per-build slot permutation and re-optimization from a fresh seed — v1.0
+  surrogates must fail on v1.1 (vs behavioral cloning / the LLM ratchet)
+- Manifest slots derived mathematically from prior steps instead of static
+  slots; rolling-state encoding of values crossing the manifest interface
+  (vs boundary hooking)
+- Adversary-in-the-loop fitness: score candidates by a bounded solver's
+  failure to recover the formula. *Likely needs an SMT dependency — ask
+  before adding (guardrail).*
+- `watermark.rs` forensic watermarking (README lists it as planned)
+- Terminator/branch mutators (cross-block folding) + dataflow-aware entropy
+  scoring for dead-read detection
+
 
