@@ -17,13 +17,13 @@ sloppy clones.
 
 ## The reality of modern reverse engineering
 
-We live in an era where software transparency is total. The tools available to
-anyone with an internet connection and an automated script can peel apart an
-indie build faster than you can close your asset pipeline. Automated
-decompilers, symbol-recovery parsers, and LLM-driven code analyzers don't just
-read your code — they metabolize it. They strip away your variable names, map
-your control-flow graphs, and spit out clean, human-readable equivalents ready
-for cloning, asset-scraping, or immediate monetization by third parties who
+We live in an era where software opacity has become unconfortably see-through. 
+The tools available to anyone with an internet connection and an automated script 
+can peel apart an indie build faster than you can close your asset pipeline. 
+Automated decompilers, symbol-recovery parsers, and LLM-driven code analyzers 
+don't just read your code — they metabolize it. They strip away your variable 
+names, map your control-flow graphs, and spit out clean, human-readable equivalents 
+ready for cloning, asset-scraping, or immediate monetization by third parties who
 didn't write a single line of the core logic.
 
 For decades, the industry's answer to this has been a miserable trade-off:
@@ -49,8 +49,8 @@ from byte one.
 What if we stopped trying to lock the doors from the outside and instead made
 the inside structurally uninhabitable for a parasite?
 
-That is the quiet, stubborn thesis behind `yatare`. It isn't a
-silver bullet. It's not a commercial product with a venture-backed roadmap or
+That is the quiet, stubborn thesis behind `yatare`. It isn't a silver bullet. 
+It's not a commercial product with a venture-backed roadmap or
 a glossy marketing deck. It is an honest, localized experiment: can we use
 stochastic superoptimization and dense algebraic folding to turn human-written
 logic into an alien cryptographic puzzle box, without bloating the binary or
@@ -106,7 +106,8 @@ the reverse engineer falls into. They are boxed into a terrible dilemma:
 
 **Box 1 — Blindly lift the alien blob.** If they copy-paste the bytecode, they
 are tethered to our structure, and if our manifest slots or runtime
-environment shift, their stolen code breaks silently.
+environment shift, their stolen code breaks silently. Not to mention that the 
+lifted blob in itself constitutes undeniable, self-reporting evidence.
 
 **Box 2 — Attempt counter-superoptimization.** They burn massive compute trying
 to untangle an instruction stream that has already been pushed to its local
@@ -223,11 +224,11 @@ climbing.
 
 **Elevator pitch:** you spent years carving a world out of raw logic, local
 files, and bare metal — then you shipped it, and within forty-eight hours the
-illusion of ownership evaporated. `yatare` is a stubborn, local-first
+illusion of your ownership evaporates. `yatare` is a stubborn, local-first
 experiment in refusing the trade: not cloud locks, not DRM bloat, but making
 the *inside* of your code structurally uninhabitable — short, fully-live,
 alien bytecode that no dead-code pass can vaporize and no analyst can read.
-It will probably fail. The point is proving another path exists.
+It will probably fail and the point is proving this other path exists.
 
 ### Prose
 
