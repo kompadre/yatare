@@ -22,8 +22,8 @@ use crate::vm::{DEFAULT_BUDGET, Instr, N_LOCALS, Outcome, exec};
 pub enum Mode {
     /// Superoptimization: minimize instruction count.
     Size,
-    /// Obfuscation: select for non-idiomatic structure (redundancy, stack
-    /// juggling, xor density), penalize recognizable peephole idioms.
+    /// Dense algebraic folding: shortest *and* structurally alien — reward
+    /// productive stack juggling, penalize peephole/DCE-trivial patterns.
     Obfuscate,
 }
 
@@ -56,6 +56,8 @@ pub struct Report {
     pub seed: u64,
     pub original_len: usize,
     pub candidate_len: usize,
+    pub original_score: i64,
+    pub candidate_score: i64,
     pub iterations: u64,
     pub proposed: u64,
     pub rejected_untypable: u64,
@@ -104,6 +106,7 @@ pub fn optimize(prog: &[Instr], cfg: &Config) -> Result<Report, OptError> {
 
     let mut current = ir;
     let mut cur_score = score(cfg.mode, &current.flatten());
+    let original_score = cur_score;
     let mut best = current.clone();
     let mut best_score = cur_score;
 
@@ -112,7 +115,13 @@ pub fn optimize(prog: &[Instr], cfg: &Config) -> Result<Report, OptError> {
     let mut rejected_divergent = 0u64;
     let mut accepted = 0u64;
 
-    let cap = prog.len() * 4 + 64;
+    // Growth budget: obfuscation stays short (a few instructions of entropy
+    // may be worth paying for; bloat is never reachable), size mode wanders
+    // wider during escape moves but is bounded too.
+    let cap = match cfg.mode {
+        Mode::Obfuscate => prog.len() + 4,
+        Mode::Size => prog.len() * 4 + 64,
+    };
 
     for _ in 0..cfg.iterations {
         let mut cand = current.clone();
@@ -166,6 +175,8 @@ pub fn optimize(prog: &[Instr], cfg: &Config) -> Result<Report, OptError> {
         seed: cfg.seed,
         original_len: prog.len(),
         candidate_len: candidate.len(),
+        original_score,
+        candidate_score: score(cfg.mode, &candidate),
         iterations: cfg.iterations,
         proposed,
         rejected_untypable,
@@ -271,6 +282,21 @@ fn ins_effect(ins: &Instr) -> i32 {
     }
 }
 
+/// Depth the op needs *at its execution point* — independent of net effect.
+fn ins_operands(ins: &Instr) -> i32 {
+    match ins {
+        Instr::Push(_) | Instr::Load(_) | Instr::Jmp(_) => 0,
+        Instr::Pop | Instr::Store(_) | Instr::Dup | Instr::Ret => 1,
+        Instr::Add
+        | Instr::Sub
+        | Instr::Mul
+        | Instr::Xor
+        | Instr::Swap
+        | Instr::Jeq(_)
+        | Instr::Jlt(_) => 2,
+    }
+}
+
 impl Ir {
     /// Split a flat program into blocks. Split points: program start, every
     /// jump target, every instruction after a terminator, and the end. This
@@ -372,16 +398,20 @@ impl Ir {
         let mut need = vec![0i32; n];
         for (i, b) in self.blocks.iter().enumerate() {
             let mut bal = 0i32;
-            let mut minbal = 0i32;
+            let mut req = 0i32;
             for (pos, ins) in b.instrs.iter().enumerate() {
                 if ins.is_terminator() && pos + 1 != b.instrs.len() {
                     return Err(format!("internal: terminator mid-block in block {i}"));
                 }
+                // Per-op operand demand can exceed what the net effect implies
+                // (add nets -1 but pops 2; dup nets +1 but needs 1; swap nets
+                // 0 but needs 2). `req` = max over ops of (demand - depth so
+                // far) = minimum entry depth that never underflows.
+                req = req.max(ins_operands(ins) - bal);
                 bal += ins_effect(ins);
-                minbal = minbal.min(bal);
             }
             delta[i] = bal;
-            need[i] = -minbal;
+            need[i] = req;
         }
 
         let mut depth: Vec<Option<i32>> = vec![None; n + 1]; // [n] = sink (unused)
@@ -643,30 +673,57 @@ impl Oracle {
 // Fitness
 // ---------------------------------------------------------------------------
 
+/// Instruction-economy weight for obfuscate mode: credits per instruction.
+/// Chosen so one rewarded entropy window (+5..+15) can pay for its own
+/// insertion (dup+add = +15 - 14 = +1) but neutral noise units are strictly
+/// negative ([dup,swap,pop] = +18 - 21 = -3), which kills the
+/// "plateau-walk + window-bonus" length ratchet. Vaporizable idioms lose
+/// outright (`swap;swap` = -15 - 14).
+const W_LEN: i64 = 7;
+
+/// Three-tier cost function:
+///
+/// 1. **Semantic correctness** — hard gate, applied *before* scoring in
+///    [`optimize`] (oracle divergence discards the candidate outright; no
+///    structural elegance matters if the math is wrong).
+/// 2. **Instruction economy** — the length term (superoptimizer constraint:
+///    shorter is better, in both modes).
+/// 3. **Structural entropy** — bonus for productive stack juggling, penalty
+///    for exactly the patterns a DCE/peephole pass vaporizes for free.
+///    The search therefore converges on *dense algebraic folding*: short,
+///    fully-live, non-idiomatic circuits — never bloat.
 fn score(mode: Mode, prog: &[Instr]) -> i64 {
     match mode {
         Mode::Size => -(prog.len() as i64),
         Mode::Obfuscate => {
-            let mut s = 0i64;
+            let mut s = -(prog.len() as i64) * W_LEN;
             for w in prog.windows(2) {
-                s -= match (w[0], w[1]) {
-                    (Instr::Push(_), Instr::Pop) => 15,
-                    (Instr::Load(_), Instr::Pop) => 10,
-                    (Instr::Store(a), Instr::Load(b)) if a == b => 15,
-                    (Instr::Store(a), Instr::Store(b)) if a == b => 20,
-                    (Instr::Load(a), Instr::Store(b)) if a == b => 10,
-                    (Instr::Push(0), Instr::Add | Instr::Sub) => 12,
-                    (Instr::Push(1), Instr::Mul) => 12,
+                s += match (w[0], w[1]) {
+                    // tier 3 (penalties): vaporizable idioms — DCE fuel
+                    (Instr::Swap, Instr::Swap) => -15, // no-op pair
+                    (Instr::Dup, Instr::Pop) => -15,   // dead duplicate
+                    (Instr::Push(_), Instr::Pop) => -15, // dead constant
+                    (Instr::Store(a), Instr::Store(b)) if a == b => -14, // overwritten write
+                    (Instr::Store(a), Instr::Load(b)) if a == b => -12, // store-forwarding pair
+                    (Instr::Load(_), Instr::Pop) => -10, // dead read
+                    (Instr::Push(0), Instr::Add | Instr::Sub) => -10, // constant fold
+                    (Instr::Push(1), Instr::Mul) => -10, // constant fold
+                    // tier 3 (bonuses): dense coupling / stack juggling
+                    (Instr::Dup, Instr::Add | Instr::Mul | Instr::Xor) => 15, // fused re-encode
+                    (Instr::Swap, _) => 10,                                   // structural reorder
+                    (Instr::Dup, Instr::Swap) => 8,                           // hold-and-shuffle
+                    (Instr::Load(_), Instr::Dup) => 5, // value held across calc
                     _ => 0,
                 };
             }
-            for i in prog {
-                s += match i {
-                    Instr::Dup | Instr::Swap | Instr::Xor => 8,
-                    _ => 0,
-                };
+            // 3-gram no-ops: net-neutral triples any stack peephole vaporizes
+            // (2-gram bonuses alone would reward them when they abut a load).
+            for w in prog.windows(3) {
+                if matches!((w[0], w[1], w[2]), (Instr::Dup, Instr::Swap, Instr::Pop)) {
+                    s -= 15;
+                }
             }
-            s - prog.len() as i64 // mild size tie-break, bounds runaway noise
+            s
         }
     }
 }
@@ -890,10 +947,12 @@ loop:
     }
 
     #[test]
-    fn obfuscate_mode_adds_structural_noise() {
-        // NOTE: locals[0] holds the input — a fixture must never store into
-        // it, or every vector livelocks (the oracle would reject all of them).
+    fn obfuscate_mode_prefers_short_and_alien() {
+        // Fixture rules: locals[0] is the input (never store into it), and it
+        // ships a dead pair so instruction economy has something to delete.
         let src = "\
+    push 5
+    pop                 # dead pair: DCE fuel the search must exploit
     push 8
     store 1
 loop:
@@ -913,20 +972,71 @@ done:
     load 2
     ret
 ";
-        let rep = optimize_src(src, Mode::Obfuscate, 11, 4_000);
+        let rep = optimize_src(src, Mode::Obfuscate, 11, 12_000);
         assert!(rep.verified, "candidate must pass fresh verification");
         assert!(
-            rep.candidate_len > rep.original_len,
-            "obfuscation should grow the program: {} -> {}",
+            rep.candidate_score > rep.original_score,
+            "three-tier fitness must improve: {} -> {}",
+            rep.original_score,
+            rep.candidate_score
+        );
+        assert!(
+            rep.candidate_len <= rep.original_len + 4,
+            "entropy growth budget (+4) must hold: {} -> {}",
             rep.original_len,
             rep.candidate_len
         );
         assert!(
-            rep.candidate
-                .iter()
-                .any(|i| matches!(i, Instr::Dup | Instr::Swap | Instr::Xor)),
-            "noise should include dup/swap/xor vocabulary"
+            rep.candidate.windows(2).any(|w| matches!(
+                (w[0], w[1]),
+                (Instr::Dup, Instr::Add | Instr::Mul | Instr::Xor)
+                    | (Instr::Swap, _)
+                    | (Instr::Load(_), Instr::Dup)
+                    | (Instr::Dup, Instr::Swap)
+            )),
+            "candidate should contain a structural-entropy window"
         );
+    }
+
+    #[test]
+    fn fitness_tiers_reward_dense_and_punish_vaporizable() {
+        // tier 3: fused re-encode beats idiomatic math; junk loses hard
+        let alien = [Instr::Dup, Instr::Add];
+        let bland = [Instr::Push(2), Instr::Mul];
+        let junk = [Instr::Push(9), Instr::Pop];
+        assert!(score(Mode::Obfuscate, &alien) > score(Mode::Obfuscate, &bland));
+        assert!(score(Mode::Obfuscate, &alien) > score(Mode::Obfuscate, &junk));
+        // tier 2: at equal vocabulary, shorter always wins (linear term —
+        // a decaying 1/N term would let entropy buy unbounded growth)
+        let long = [Instr::Swap, Instr::Swap, Instr::Swap, Instr::Swap];
+        let short = [Instr::Swap, Instr::Swap];
+        assert!(score(Mode::Obfuscate, &short) > score(Mode::Obfuscate, &long));
+        // size mode is pure instruction economy
+        assert!(score(Mode::Size, &short) > score(Mode::Size, &long));
+        // bloat can never be net-positive: +4 junk pairs all lose to length
+        let bloat = [
+            Instr::Push(3),
+            Instr::Xor,
+            Instr::Push(3),
+            Instr::Xor,
+            Instr::Push(0),
+            Instr::Pop,
+        ];
+        assert!(score(Mode::Obfuscate, &bloat) < 0);
+    }
+
+    #[test]
+    fn typecheck_accounts_for_op_operand_demands() {
+        // add nets -1 but pops 2; dup nets +1 but needs 1; swap nets 0 but
+        // needs 2. Net-effect-only tracking would wrongly accept these at
+        // depth 0 (the oracle would catch it at runtime, but compile-time
+        // check_program has no oracle behind it).
+        for src in ["dup\nret\n", "swap\nret\n", "push 1\nadd\nret\n"] {
+            let err = check(&parse(src).unwrap()).unwrap_err();
+            assert!(err.contains("underflow"), "src={src:?} got {err}");
+        }
+        // ...and with sufficient depth the same ops are fine
+        check(&parse("push 1\ndup\nswap\nadd\nret\n").unwrap()).unwrap();
     }
 
     #[test]

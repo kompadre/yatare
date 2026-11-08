@@ -27,6 +27,8 @@ jQuery-style demo on a simplified VDOM (hero workload: **layout/offset math**,
 | Demo | naive jqLite on simplified VDOM; Node harness hydrates/reads VM locals via a compiler-emitted manifest |
 | License | MIT added: Alexey S. Kompaniets <kompadre@gmail.com> |
 | Git | repo initialized (`main`), `Stage N:` / `Area:` commits with explanatory bodies |
+| Fitness (corrected same-day, user design: supopt/obfuscator dilemma) | three-tier cost: **oracle hard gate → linear length economy (`W_LEN=7`/insn) → structural entropy** (reward stack-juggling windows, penalize DCE/peephole-trivial idioms). Obfuscate growth budget = original + 4 (hard cap). Dense algebraic folding, never bloat |
+| VDOM depth (P7) | naive doubly-linked node tree lives **in the Node harness**; bytecode sees flattened numeric slots via the manifest only (no memory ops in the ISA — extending it would be the real work-loss scenario); XML (de)serialization for `.html('')` in harness JS; edge cases explicitly out of scope |
 
 ### ISA v0 (14 ops)
 
@@ -91,9 +93,41 @@ class-mask logic must be XOR + JLT/JEQ patterns.
 - **Verification vector counts can be < requested:** vectors where the
   *original* exceeds the step budget (huge random loop bounds) are excluded by
   design (e.g. 410/512 on `sum_loop`).
-- **Fitness quirk noted for later:** adjacent `swap; swap` is never penalized
-  (+14 score) so it's accepted as trivial noise; consider scoring it as an
-  idiom pair.
+- ~~Fitness quirk: adjacent `swap; swap` never penalized~~ — **superseded by
+  the same-day fitness correction** (see Decisions); see the rework gotchas
+  below.
 - Measured P4 behavior (seed 7, size mode on `dead_code.asm`): 14 → 6
   instructions, 6000 iterations = 1491 untypable + 2972 divergent + 110
   accepted, PASS on 512 fresh vectors. Determinism test locks same-seed output.
+
+### Fitness rework gotchas (user correction: "dense algebraic folding", same day)
+
+- **The old `Mode::Obfuscate` was the bloat anti-pattern** (+8/insn for
+  dup/swap/xor, growth-rewarding → 20→144 demos) — trivially vaporizable by
+  DCE/peephole. Replaced: linear `W_LEN=7`/insn charge + window
+  bonuses (dup+add15, swap 10, dup+swap 8, load+dup 5) / penalties
+  (swap-swap, dup-pop, push-pop −15; store-forwarding −12; const-fold −10;
+  3-gram no-op [dup,swap,pop] −15). Dead-code sample under new scoring:
+  14 → **8** (−42.9%), swap-reordered xor, PASS 512 vectors.
+- **Length ratchet found while tuning:** neutral noise units net exactly 0 at
+  `W_LEN=6`, so plateau-walk accumulated length and small window bonuses then
+  sanctified it (18 → 33 observed). Fixes: `W_LEN=7` (units strictly
+  negative), explicit 3-gram no-op penalty, hard obfuscate cap `original+4`.
+  Never trust a fitness term whose growth charge can be cancelled by its own
+  recurring bonus.
+- **Typecheck soundness bug (fixed here):** net-effect-only depth tracking
+  under-counted operand demands — `add` nets −1 but pops 2, `dup` nets +1 but
+  needs 1, `swap` nets 0 but needs 2. The oracle always caught it during
+  search, but compile-time `check_program` has **no oracle behind it** → a JS
+  program could have compiled, typechecked, then trapped on any run. Fixed
+  with per-op `ins_operands` demand (`req = max(demand − depth_so_far)`);
+  regression test `typecheck_accounts_for_op_operand_demands`.
+- **Verified-equivalence is stronger than it looks:** the search found a
+  candidate storing a constant into `local2` on early loop iterations — legal
+  because only the *final* state is observable (later iterations overwrite).
+  Full-final-state observation is what forces joint folding of outputs;
+  do not weaken it to return-value-only.
+- **Future scoring refinement (backlog):** dead *reads* with no consumer
+  (e.g. `load 9` immediately before a value-producing `ret`) are not
+  window-detectable — needs dataflow, not 2-grams. Linear length penalty keeps
+  them bounded meanwhile.

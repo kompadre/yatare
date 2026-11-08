@@ -37,8 +37,10 @@ USAGE:
 
     yatare optimize <file.asm> [--mode size|obfuscate] [--seed N] [--iters N]
                               [--vectors N] [--verify N]
-        Search for an oracle-equivalent program and verify it on fresh test
-        vectors. Exit code 3 when verification fails.
+        Search for an oracle-equivalent program: correctness is a hard gate,
+        then instruction economy (+ structural entropy in obfuscate mode)
+        selects for short, dense, non-idiomatic circuits. Exit code 3 when
+        verification fails.
 
     yatare help
         Show this help."
@@ -226,6 +228,10 @@ fn print_report(r: &Report) {
     } else {
         println!("length: {} -> {}", r.original_len, r.candidate_len);
     }
+    println!(
+        "score: {} -> {}  (length economy + structural entropy)",
+        r.original_score, r.candidate_score
+    );
     println!(
         "search: {} iterations | proposed {} | untypable {} | divergent {} | accepted {}",
         r.iterations, r.proposed, r.rejected_untypable, r.rejected_divergent, r.accepted
