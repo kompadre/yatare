@@ -11,12 +11,12 @@ into `CHANGELOG.md` and the stage row below gets ticked.
 
 ## Stages
 
-- [ ] PoC implementation including creation of a bespoke VM with 14 unique instructions bytecode interpeter, 
+- [x] PoC implementation including creation of a bespoke VM with 14 unique instructions bytecode interpeter, 
    JS compiler. Compiler takes JS source and transforms it to the custom bytecode, "optimizing" special blocks). 
    - [x] 14-op stack VM + interpreter + asm parser (`src/vm.rs`, `src/parser.rs`)
    - [x] Oracle-guided stochastic optimizer (`src/optimizer.rs`)
    - [x] JS subset compiler (`src/js/`: lexer, Pratt parser, inlining codegen, element manifest, self-validation)
-   - [ ] naive-jQuery/VDOM layout-offset demo + Node harness (P7)
+   - [x] naive-jQuery/VDOM layout-offset demo + Node harness (`demo/`)
 - [ ] Full WASM implementation:
 
 ## Open design questions (resolve before/during the named stage)

@@ -58,8 +58,8 @@ class-mask logic must be XOR + JLT/JEQ patterns.
 - [x] P4 mutators (insert/delete/transpose + identity pairs), stack-typing validity, fitness (`--mode size|obfuscate`)
 - [x] P5 CLI (`run`, `disasm`, `optimize`), sample programs + `tests/cli.rs`
 - [x] P6 JS subset compiler (`src/js/`): lexer, Pratt parser, resolver (≤16 locals), codegen with inlining + interning
-- [ ] P7 naive-jQuery/VDOM layout-offset demo + harness
-- [ ] P8 gates green; doc flow: detail → CHANGELOG `[Unreleased]`, tick TODO sub-items, README usage/architecture update
+- [x] P7 naive-jQuery/VDOM layout-offset demo + harness
+- [x] P8 gates green; doc flow: detail → CHANGELOG `[Unreleased]`, tick TODO sub-items, README usage/architecture update
 
 ### Gotchas & constraints (accumulate here)
 
@@ -149,3 +149,31 @@ class-mask logic must be XOR + JLT/JEQ patterns.
   caller scope) — so `f(f())` is legal while true recursion is caught; arity
   is checked before recursion, so recursion fixtures must match arity.
 - `run --locals v0,v1,...` exists for harness hydration (manifest slots).
+
+### P7 demo gotchas
+
+- **The manifest is a map, not a list:** harness hydration must place values
+  *by slot* (`vals[e.slot] = ...`), not positionally in manifest order.
+  Positional fill silently put the width value into `banner.left` and left
+  other slots at 0 — results were wrong-but-plausible (320016 vs the expected
+  140024) and took a full asm trace to find. Symptom matched the math; the
+  inputs were misaligned.
+- The optimize step re-ingests output by slicing the `--- after ---` listing:
+  pc-annotated disassembly is re-parseable by design — the parser round-trip
+  guarantee paid off directly.
+
+### Outcome (2026-11-08) — stage 1 PoC complete
+
+- Landed same-day after the fitness correction: 14-op VM + asm parser,
+  three-tier oracle-guided optimizer (size: 14→6 on `dead_code`, PASS 512
+  vectors; obfuscate: short + alien, growth budget +4), JS-subset front end
+  (inlining, interning, self-validation), jqLite/VDOM layout demo green
+  end-to-end with optimize-and-prove-equivalence (96→100 instrs, outputs
+  identical on both scenarios).
+- Gates: **69 tests**, `clippy --all-targets -D warnings`, `cargo fmt --check`
+  — all green. Six commits: bootstrap → VM/parser → optimizer → fitness
+  correction → JS front end → demo + docs.
+- **Next step:** stage 2 (`Full WASM implementation`) per TODO. Backlog:
+  terminator/branch mutators (cross-block folding), dataflow-aware entropy
+  scoring (dead-read detection), `watermark.rs`, JS subset deepening (calls
+  as values, `|`/`&` if the ISA ever grows them).
