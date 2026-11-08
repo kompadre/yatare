@@ -1,5 +1,6 @@
 //! yatare CLI entry point.
 
+mod js;
 mod optimizer;
 mod parser;
 mod vm;
@@ -14,6 +15,7 @@ fn main() {
     match args.get(1).map(String::as_str) {
         Some("run") => cmd_run(&args[2..]),
         Some("disasm") => cmd_disasm(&args[2..]),
+        Some("compile") => cmd_compile(&args[2..]),
         Some("optimize") => cmd_optimize(&args[2..]),
         Some("help") | Some("--help") | Some("-h") | None => print_help(),
         Some(other) => {
@@ -29,8 +31,14 @@ fn print_help() {
         "yatare — stack-based VM bytecode superoptimizer / obfuscator
 
 USAGE:
-    yatare run <file.asm> [--budget N]
-        Interpret a bytecode assembly file and print the outcome.
+    yatare compile <file.js> [--out <file.asm>]
+        Lower the JS subset to bytecode assembly (functions are inlined,
+        selectors interned; manifest embedded as `# manifest:` comments).
+        Asm goes to stdout, or to --out. Errors exit 1.
+
+    yatare run <file.asm> [--budget N] [--locals v0,v1,...]
+        Interpret an assembly file. --locals hydrates initial local slots
+        (comma-separated i32s, at most 16).
 
     yatare disasm <file.asm>
         Parse and print the canonical disassembly.
@@ -70,11 +78,34 @@ fn cmd_run(args: &[String]) {
         exit(2);
     };
     let mut budget = DEFAULT_BUDGET;
+    let mut locals = [0i32; N_LOCALS];
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
             "--budget" => {
                 budget = flag_u64(args, i, "--budget");
+                i += 2;
+            }
+            "--locals" => {
+                let raw = args.get(i + 1).unwrap_or_else(|| missing_value("--locals"));
+                let mut n = 0;
+                for part in raw.split(',') {
+                    let part = part.trim();
+                    match part.parse::<i32>() {
+                        Ok(v) if n < N_LOCALS => {
+                            locals[n] = v;
+                            n += 1;
+                        }
+                        Ok(_) => {
+                            eprintln!("yatare run: --locals: at most {N_LOCALS} values");
+                            exit(2);
+                        }
+                        Err(_) => {
+                            eprintln!("yatare run: --locals: bad value `{part}`");
+                            exit(2);
+                        }
+                    }
+                }
                 i += 2;
             }
             other => {
@@ -85,21 +116,21 @@ fn cmd_run(args: &[String]) {
     }
 
     let prog = read_program(path);
-    let (out, locals) = vm::exec(&prog, &[0; N_LOCALS], budget);
+    let (out, after) = vm::exec(&prog, &locals, budget);
     match out {
         Outcome::Halt(v) => println!("result: {v}"),
         Outcome::Trap(t) => {
             println!("outcome: trap {t:?}");
-            print_locals(&locals);
+            print_locals(&after);
             exit(1);
         }
         Outcome::StepLimit => {
             println!("outcome: step limit exceeded ({budget} steps)");
-            print_locals(&locals);
+            print_locals(&after);
             exit(1);
         }
     }
-    print_locals(&locals);
+    print_locals(&after);
 }
 
 fn cmd_disasm(args: &[String]) {
@@ -109,6 +140,66 @@ fn cmd_disasm(args: &[String]) {
     };
     let prog = read_program(path);
     print!("{}", parser::disassemble(&prog));
+}
+
+fn cmd_compile(args: &[String]) {
+    let mut path: Option<&str> = None;
+    let mut out_path: Option<&str> = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--out" => {
+                let Some(v) = args.get(i + 1) else {
+                    missing_value("--out");
+                };
+                out_path = Some(v);
+                i += 2;
+            }
+            other if other.starts_with('-') => {
+                eprintln!("yatare compile: unknown flag `{other}`");
+                exit(2);
+            }
+            other => {
+                if path.is_some() {
+                    eprintln!("yatare compile: unexpected argument `{other}`");
+                    exit(2);
+                }
+                path = Some(other);
+                i += 1;
+            }
+        }
+    }
+    let Some(path) = path else {
+        eprintln!("yatare compile: missing file argument");
+        exit(2);
+    };
+
+    let src = match std::fs::read_to_string(path) {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("yatare: cannot read {path}: {e}");
+            exit(1);
+        }
+    };
+    match js::compile(&src) {
+        Ok(c) => match out_path {
+            Some(out) => {
+                if let Err(e) = std::fs::write(out, &c.asm) {
+                    eprintln!("yatare: cannot write {out}: {e}");
+                    exit(1);
+                }
+                eprintln!(
+                    "compiled {path} -> {out} ({} manifest entries)",
+                    c.manifest.len()
+                );
+            }
+            None => print!("{}", c.asm),
+        },
+        Err(e) => {
+            eprintln!("yatare: {path}: {e}");
+            exit(1);
+        }
+    }
 }
 
 fn cmd_optimize(args: &[String]) {
@@ -194,7 +285,7 @@ fn cmd_optimize(args: &[String]) {
 }
 
 fn missing_value(flag: &str) -> ! {
-    eprintln!("yatare optimize: {flag} needs a value");
+    eprintln!("yatare: {flag} needs a value");
     exit(2)
 }
 

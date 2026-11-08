@@ -57,7 +57,7 @@ class-mask logic must be XOR + JLT/JEQ patterns.
 - [x] P3 oracle (in `src/optimizer.rs`): seeded vectors, cache original runs
 - [x] P4 mutators (insert/delete/transpose + identity pairs), stack-typing validity, fitness (`--mode size|obfuscate`)
 - [x] P5 CLI (`run`, `disasm`, `optimize`), sample programs + `tests/cli.rs`
-- [ ] P6 JS subset compiler (`src/js/`): lexer, Pratt parser, resolver (≤16 locals), codegen with inlining + interning
+- [x] P6 JS subset compiler (`src/js/`): lexer, Pratt parser, resolver (≤16 locals), codegen with inlining + interning
 - [ ] P7 naive-jQuery/VDOM layout-offset demo + harness
 - [ ] P8 gates green; doc flow: detail → CHANGELOG `[Unreleased]`, tick TODO sub-items, README usage/architecture update
 
@@ -131,3 +131,21 @@ class-mask logic must be XOR + JLT/JEQ patterns.
   (e.g. `load 9` immediately before a value-producing `ret`) are not
   window-detectable — needs dataflow, not 2-grams. Linear length penalty keeps
   them bounded meanwhile.
+
+### JS front-end gotchas (P6)
+
+- **Rust raw-string footgun:** `$("#x")` contains the byte sequence `"#`,
+  which *terminates* `r#"..."#`. Every test embedding jQuery calls must use
+  `r##"..."##`. Cost: one broken-module fmt pass + ~10 edit round-trips.
+- **Precedence pinned C-faithful:** `==` binds *tighter* than `^` (the classic
+  `x & MASK == 0` trap), so `a ^ b == c` parses as `a ^ (b == c)`; loose→tight
+  is `|| && ^ == < ^ + *`. The first draft table had `^` inverted — the
+  `precedence_is_c_faithful` test caught it. Table lives in `src/js/parse.rs`.
+- **Handle vars are legal:** `var b = $("#b");` compiles (compile-time handle,
+  zero slots); errors only fire where a *number* is required (operands,
+  conditions, args, returns). Test expectations initially assumed rejection.
+- **Inline/check order in `inline_call`:** recursion is detected via
+  `fn_stack` which is pushed only around the *body* (args lowered first in
+  caller scope) — so `f(f())` is legal while true recursion is caught; arity
+  is checked before recursion, so recursion fixtures must match arity.
+- `run --locals v0,v1,...` exists for harness hydration (manifest slots).

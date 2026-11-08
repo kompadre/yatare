@@ -189,6 +189,12 @@ pub fn optimize(prog: &[Instr], cfg: &Config) -> Result<Report, OptError> {
     })
 }
 
+/// Stack-typing validation for externally generated programs (used by the JS
+/// compiler's compile-time gate; search uses `Ir::typecheck` directly).
+pub fn check_program(prog: &[Instr]) -> Result<(), String> {
+    Ir::split(prog).and_then(|ir| ir.typecheck())
+}
+
 // ---------------------------------------------------------------------------
 // Deterministic RNG: xorshift64* (no external crates per repo guardrails)
 // ---------------------------------------------------------------------------

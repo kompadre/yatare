@@ -15,7 +15,8 @@ into `CHANGELOG.md` and the stage row below gets ticked.
    JS compiler. Compiler takes JS source and transforms it to the custom bytecode, "optimizing" special blocks). 
    - [x] 14-op stack VM + interpreter + asm parser (`src/vm.rs`, `src/parser.rs`)
    - [x] Oracle-guided stochastic optimizer (`src/optimizer.rs`)
-   - [ ] JS subset compiler + naive-jQuery/VDOM layout-offset demo (`src/js/`)
+   - [x] JS subset compiler (`src/js/`: lexer, Pratt parser, inlining codegen, element manifest, self-validation)
+   - [ ] naive-jQuery/VDOM layout-offset demo + Node harness (P7)
 - [ ] Full WASM implementation:
 
 ## Open design questions (resolve before/during the named stage)
