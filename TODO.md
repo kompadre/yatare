@@ -39,5 +39,9 @@ Speculative defenses — the "drawbridge" counter-measures from
 - `watermark.rs` forensic watermarking (README lists it as planned)
 - Terminator/branch mutators (cross-block folding) + dataflow-aware entropy
   scoring for dead-read detection
+- Future emitter targets beyond WASM: **JVM class files** and **.NET/CIL** —
+  same shape as this VM (operand/evaluation stack + local table), highest
+  victim value (JADX / ILSpy / dnSpy culture); costs new instruction tables +
+  emitters, search machinery unchanged
 
 

@@ -29,6 +29,13 @@ drawbridge for each.
 4. **Oracle-Guided Search (`src/optimizer.rs`):** A stochastic mutation engine (insert/delete/transpose inside terminator-pinned blocks) that evaluates candidates against a seeded test-vector suite. Three-tier cost: semantic correctness is a hard gate, shorter is better, structural entropy rewards non-idiomatic transitions — the balance that keeps results dense instead of boring or bloated.
 5. **Forensic Watermarking (`src/watermark.rs`):** *Planned* — biased cost functions and algebraic constants to bind ownership profiles into the binary layout.
 
+The pipeline is shaped for more floors: **stage 2 is WebAssembly**, and the
+natural targets after that are **JVM class files** and **.NET/CIL** — both are
+stack machines with local-variable tables (this VM's home turf), and both
+ecosystems treat one-click decompilation (JADX, ILSpy, dnSpy) as a fact of
+life. Retargeting means new instruction tables and emitters; the search
+machinery keeps its shape.
+
 ## Installation & Usage
 
 ### Build

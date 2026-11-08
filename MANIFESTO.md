@@ -196,6 +196,18 @@ WASM target planned for stage 2). Adding a counter-measure doesn't require
 rewriting the game logic — we update the cost function and let the stochastic
 engine figure out how to bake the defense straight into the bytecode.
 
+**And the building has more floors.** The pipeline doesn't stop at
+WebAssembly: **JVM class files** and **.NET/CIL** are the natural targets
+after that — not by accident. The JVM's operand stack + local-variable table
+and the CIL evaluation stack + locals map onto this VM's shape almost
+one-to-one (the stack-typing verifier was already modeled on the JVM's own
+verifier), so retargeting means new instruction tables and an emitter — not a
+new search engine. And those are precisely the ecosystems where one-click
+decompilation is the assumed default: Minecraft-mod and Unity-Mono builds
+dissolving under JADX, ILSpy, or dnSpy before the coffee is cold. The
+machinery that refuses to be read here is the same machinery that would refuse
+to be read there.
+
 ---
 
 > For an optimizer, that opposition is our inner loop: the mutator screaming
